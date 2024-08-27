@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Total Phone Bill</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="//unpkg.com/alpinejs" defer></script>
+</head>
+<body>
+    <div class="container" x-data="app()">
+        <h1>Total Phone Bill Calculator</h1>
+
+        <form @submit.prevent="calculateBill">
+            <h2>Calculate Phone Bill</h2>
+            <label for="price_plan">Price Plan:</label>
+            <input type="text" id="price_plan" x-model="pricePlan">
+
+            <label for="actions">Actions (comma separated):</label>
+            <input type="text" id="actions" x-model="actions">
+
+            <button type="submit">Calculate</button>
+        </form>
+
+        <div x-show="total !== null">
+            <h2>Total Bill</h2>
+            <p x-text="`Total: $${total}`"></p>
+        </div>
+
+        <h2>Manage Price Plans</h2>
+        <form @submit.prevent="createPricePlan">
+            <label for="new_plan_name">Plan Name:</label>
+            <input type="text" id="new_plan_name" x-model="newPlanName">
+
+            <label for="new_sms_cost">SMS Cost:</label>
+            <input type="number" id="new_sms_cost" x-model="newSmsCost" step="0.01">
+
+            <label for="new_call_cost">Call Cost:</label>
+            <input type="number" id="new_call_cost" x-model="newCallCost" step="0.01">
+
+            <button type="submit">Create Price Plan</button>
+        </form>
+
+        <h2>Available Price Plans</h2>
+        <ul>
+            <template x-for="plan in pricePlans" :key="plan.id">
+                <li>
+                    <span x-text="plan.plan_name"></span>
+                    <button @click="deletePricePlan(plan.id)">Delete</button>
+                </li>
+            </template>
+        </ul>
+    </div>
+
+    <script>
+        function app() {
+            return {
+                pricePlan: '',
+                actions: '',
+                total: null,
+                newPlanName: '',
+                newSmsCost: '',
+                newCallCost: '',
+                pricePlans: [],
+
+                async calculateBill() {
+                    const response = await fetch('/api/phonebill/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            price_plan: this.pricePlan,
+                            actions: this.actions.split(',').map(action => action.trim())
+                        })
+                    });
+                    const data = await response.json();
+                    this.total = data.total;
+                },
+
+                async createPricePlan() {
+                    await fetch('/api/price_plan/create', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            name: this.newPlanName,
+                            sms_cost: parseFloat(this.newSmsCost),
+                            call_cost: parseFloat(this.newCallCost)
+                        })
+                    });
+                    this.newPlanName = '';
+                    this.newSmsCost = '';
+                    this.newCallCost = '';
+                    this.fetchPricePlans();
+                },
+
+                async deletePricePlan(id) {
+                    await fetch('/api/price_plan/delete', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            id: id
+                        })
+                    });
+                    this.fetchPricePlans();
+                },
+
+                async fetchPricePlans() {
+                    const response = await fetch('/api/price_plans/');
+                    this.pricePlans = await response.json();
+                },
+
+                init() {
+                    this.fetchPricePlans();
+                }
+            }
+        }
+    </script>
+</body>
+</html>
